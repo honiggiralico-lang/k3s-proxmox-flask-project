@@ -1,0 +1,4 @@
+pm_endpoint          = "https://<PROXMOX_IP>:8006/"
+pm_api_token_id      = "root@pam!terraform"
+pm_api_token_secret  = "<YOUR_SECRET_TOKEN_HERE>"
+ssh_public_key       = "<CONTROL_NODE_SSH_PUBLIC_KEY>"

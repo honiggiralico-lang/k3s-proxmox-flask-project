@@ -11,6 +11,9 @@ crash.*.log
 *.log
 inventory.ini
 
+#App
+app/flask-app.tar
+
 # Generale
 .DS_Store
 *.pem

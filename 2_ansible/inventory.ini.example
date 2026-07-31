@@ -1,0 +1,10 @@
+[master]
+<MASTER_IP> ansible_user=<USER>
+
+[workers]
+<WORKER_1_IP> ansible_user=<USER>
+<WORKER_2_IP> ansible_user=<USER>
+
+[cluster:children]
+master
+workers
