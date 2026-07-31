@@ -91,8 +91,14 @@ kubectl apply -f app-deployment.yaml
 **- Automated Network Configuration:** Bypassed Cloud-Init network interface naming issues by enforcing specific interface configurations via Terraform.
 **- Private Container Registry:** Implemented a secure, local HTTP registry using Podman on the control node. Automated the distribution of the registries.yaml configuration to all K3s nodes via Ansible, ensuring a fully self-contained offline-capable deployment.
 **- Idempotent Infrastructure:** The entire environment can be destroyed and recreated from scratch in minutes using Terraform and Ansible.
+## Author
+
+**Gino Giralico** 
+- GitHub: [@honiggiralico-lang](https://github.com/honiggiralico-lang)
+
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
+
 
 
 
