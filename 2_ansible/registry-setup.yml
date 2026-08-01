@@ -1,20 +1,21 @@
 ---
+- name: Gather facts from localhost
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
 - name: Configure K3s to use local insecure registry
   hosts: cluster
   become: yes
-  # Dichiariamo la variabile qui, prendendola dall'inventory
   vars:
-    registry_ip: "{{ hostvars[groups['master'][0]]['ansible_host'] }}"
-    # NOTA: Qui stiamo prendendo l'IP del Master come esempio. 
-    # Se il registry fosse sul Master, useremmo questo. Ma il registry è sulla tua Fedora!
+    # Legge l'IP di localhost correttamente dai fatti di localhost
+    registry_ip: "{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}"
+
   tasks:
-    # Per dire ai nodi di scaricare dalla tua Fedora, dobbiamo passargli l'IP.
-    # Il modo più pulito è registrare l'IP della macchina da cui parte Ansible (la tua Fedora).
-    - name: Set local registry IP fact
-      set_fact:
-        registry_ip: "{{ ansible_default_ipv4.address }}"
-      delegate_to: localhost
-      run_once: true
+    # Task opzionale di debug per verificare l'IP prima di scrivere
+    - name: Print registry IP for verification
+      debug:
+        msg: "L'IP del registry utilizzato è: {{ registry_ip }}"
 
     - name: Ensure K3s config directory exists
       file:
@@ -25,19 +26,20 @@
     - name: Create registries.yaml for K3s
       copy:
         dest: /etc/rancher/k3s/registries.yaml
+        mode: '0644'
         content: |
           mirrors:
-            {{ registry_ip }}:5000:
+            "{{ registry_ip }}:5000":
               endpoint:
                 - "http://{{ registry_ip }}:5000"
-    
-    - name: Restart K3s Master to apply registry config
+
+    - name: Restart K3s Master
       service:
         name: k3s
         state: restarted
       when: inventory_hostname in groups['master']
 
-    - name: Restart K3s Agent to apply registry config
+    - name: Restart K3s Agent
       service:
         name: k3s-agent
         state: restarted
