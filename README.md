@@ -76,14 +76,22 @@ podman build -t <CONTROL_NODE_IP>:5000/flask-k8s-app:2.0 .
 podman push <CONTROL_NODE_IP>:5000/flask-k8s-app:2.0
 ```
 ## Step 4: Application Deployment (Kubernetes)
+1. Retrieve the K3s kubeconfig from the master node to your control node to use kubectl:
+```bash
+ssh <USER>@<MASTER_IP> 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/config
+```
+2. Replace the internal loopback IP with the master node's LAN IP in the kubeconfig file:
+```bash
+sed -i 's/127.0.0.1/<MASTER_IP>/g' ~/.kube/config
+```
+3. Navigate to the 3_kubernetes/ directory.
 
-1. Copy the K3s kubeconfig from the master node to your control node to use kubectl.
-2. Navigate to the 3_kubernetes/ directory.
-3. Deploy the application:
+4. Deploy the application:
 ```bash
 kubectl apply -f app-deployment.yaml
 ```
-4. Access the application at http://<MASTER_IP>:30001.
+5. Access the application at http://<MASTER_IP>:30001.
+
 
 ## Key Features & Engineering Challenges Solved
 
