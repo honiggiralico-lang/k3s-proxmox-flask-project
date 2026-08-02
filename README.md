@@ -102,7 +102,7 @@ kubectl apply -f app-deployment.yaml
 
 ## CI/CD Pipeline (GitOps)
 
-This project includes a continuous deployment pipeline using GitHub Actions and a Self-Hosted Runner.
+This project includes a continuous deployment pipeline using **GitHub Actions** and a **Self-Hosted Runner**.
 
 - The pipeline is triggered automatically on every git push to the main branch that modifies the app/ directory.
 - A self-hosted runner (running on the Fedora Control Node) executes the workflow:
