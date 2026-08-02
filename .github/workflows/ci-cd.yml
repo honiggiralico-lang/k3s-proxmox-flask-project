@@ -1,0 +1,32 @@
+name: Build and Deploy to K3s
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'  # La pipeline parte solo se modifichi i file dentro la cartella app/
+
+jobs:
+  build-and-deploy:
+    # Usa il runner che installeremo sulla tua Fedora
+    runs-on: self-hosted
+
+    steps:
+      # 1. Scarica il codice aggiornato da GitHub
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Builda la nuova immagine con Podman
+      - name: Build Podman image
+        run: |
+          cd app
+          podman build -t 10.0.0.91:5000/flask-k8s-app:latest .
+
+      # 3. Spingi l'immagine sul tuo registry locale
+      - name: Push to local registry
+        run: podman push 10.0.0.91:5000/flask-k8s-app:latest
+
+      # 4. Dì a Kubernetes di riavviare i pod con la nuova immagine
+      - name: Deploy to Kubernetes
+        run: kubectl rollout restart deployment/flask-app
