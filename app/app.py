@@ -37,7 +37,7 @@ def hello():
 
     html = f"""
     <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; border-radius: 10px;">
-        <h1>🚀 Multi-Tier Flask App</h1>
+        <h1>🚀 Multi-Tier Flask App - Auto-Deployed  via CI/CD!</h1>
         <p><strong>Stato DB:</strong> {db_status}</p>
         <ul style="font-size: 18px;">
             <li>Pod Name: <b>{pod_name}</b></li>
