@@ -99,6 +99,18 @@ kubectl apply -f app-deployment.yaml
 **- Automated Network Configuration:** Bypassed Cloud-Init network interface naming issues by enforcing specific interface configurations via Terraform.
 **- Private Container Registry:** Implemented a secure, local HTTP registry using Podman on the control node. Automated the distribution of the registries.yaml configuration to all K3s nodes via Ansible, ensuring a fully self-contained offline-capable deployment.
 **- Idempotent Infrastructure:** The entire environment can be destroyed and recreated from scratch in minutes using Terraform and Ansible.
+
+## CI/CD Pipeline (GitOps)
+
+This project includes a continuous deployment pipeline using GitHub Actions and a Self-Hosted Runner.
+
+- The pipeline is triggered automatically on every git push to the main branch that modifies the app/ directory.
+- A self-hosted runner (running on the Fedora Control Node) executes the workflow:
+1. Builds the new Podman image.
+2. Pushes the image to the local registry.
+3. Triggers a rolling restart on the K3s cluster (kubectl rollout restart).
+- This ensures that the application is always updated in production without any manual intervention.
+
 ## Author
 
 **Gino Giralico** 
