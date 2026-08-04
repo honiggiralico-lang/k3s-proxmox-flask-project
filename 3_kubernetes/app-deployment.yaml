@@ -23,7 +23,7 @@ spec:
         - containerPort: 6379
 
 ---
-# 2. Service per Redis (Raggiungibile come "redis-service")
+# 2. Service per Redis
 apiVersion: v1
 kind: Service
 metadata:
@@ -37,7 +37,7 @@ spec:
       targetPort: 6379
 
 ---
-# 3. App Flask (3 repliche)
+# 3. App Flask
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
       - name: flask
-        image: <CONTROL_NODE_IP>:5000/flask-k8s-app:2.0
+        image: <CONTROL_NODE_IP>:5000/flask-k8s-app:latest
         imagePullPolicy: Always 
         env:
         - name: REDIS_HOST
@@ -65,17 +65,37 @@ spec:
         - containerPort: 5000
 
 ---
-# 4. Service per esporre Flask sulla LAN (NodePort)
+# 4. Service per Flask (Ora ClusterIP, non più NodePort)
 apiVersion: v1
 kind: Service
 metadata:
   name: flask-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: flask
   ports:
     - protocol: TCP
       port: 5000
       targetPort: 5000
-      nodePort: 30001 # Accessibile sulla porta 30001 di tutti i nodi
+
+---
+# 5. Ingress (Il nuovo Portiere!)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flask-ingress
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+spec:
+  rules:
+  - host: flask.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: flask-service
+            port:
+              number: 5000
