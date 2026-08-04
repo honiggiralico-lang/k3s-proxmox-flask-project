@@ -4,6 +4,10 @@ This project implements a fully automated, Infrastructure as Code (IaC) pipeline
 
 ## Architecture
 
+<p align="center">
+  <img src="docs/architecture-v3.png" alt="Architecture Diagram" width="85%">
+</p>
+
 - **Control Node (Workstation):** Fedora Linux 44. This machine acts as the DevOps control plane. It runs Terraform, Ansible, `kubectl`, and hosts a local Podman registry to serve container images directly to the cluster.
 - **Hypervisor:** Proxmox VE (Bare-metal server on the same LAN, 12GB RAM).
 - **Kubernetes Cluster (K3s):**
@@ -92,6 +96,14 @@ kubectl apply -f app-deployment.yaml
 ```
 5. Access the application at http://<MASTER_IP>:30001.
 
+## Step 5: Accessing the Application (Ingress Controller)
+K3s comes with Traefik Ingress Controller pre-installed. The application is exposed on port 80 via a custom local domain.
+
+1. The app-deployment.yaml includes an Ingress resource that routes traffic for flask.local to the Flask service.
+2. To resolve the local domain on your control node, add the following line to your /etc/hosts file (replace <MASTER_IP> with your Master Node IP): echo "<MASTER_IP> flask.local" | sudo tee -a /etc/hosts
+3. Ensure port 80 is open on the Master Node firewall.
+4. Access the application at http://flask.local.
+
 
 ## Key Features & Engineering Challenges Solved
 
@@ -99,6 +111,7 @@ kubectl apply -f app-deployment.yaml
 **- Automated Network Configuration:** Bypassed Cloud-Init network interface naming issues by enforcing specific interface configurations via Terraform.
 **- Private Container Registry:** Implemented a secure, local HTTP registry using Podman on the control node. Automated the distribution of the registries.yaml configuration to all K3s nodes via Ansible, ensuring a fully self-contained offline-capable deployment.
 **- Idempotent Infrastructure:** The entire environment can be destroyed and recreated from scratch in minutes using Terraform and Ansible.
+- **Ingress Controller & Local DNS:** Utilized the built-in Traefik Ingress Controller to route Layer 7 HTTP traffic. Configured a local domain (`flask.local`) via the `/etc/hosts` file to access the application on standard port 80, replacing the need for raw NodePort access.
 
 ## CI/CD Pipeline (GitOps)
 
