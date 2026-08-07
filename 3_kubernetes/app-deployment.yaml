@@ -1,5 +1,83 @@
 ---
-# 1. Database Redis
+# 1. Secret per le credenziali di MySQL
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: mysql-secret
+  namespace: default
+spec:
+  encryptedData:
+    MYSQL_DATABASE: AgCm2N2yxAeK429ieQYmRbf6rNPZUjwBkh5zO2etoLqeASgsLWOUR7so1GCTfeNItl8Rc3U9pWWLbtvXh2Q6snKZJ2xz6hA2BJVYazOii/ojcAl3NTFbj85/TKjQMw7Co5tajl3bV/M5kwSKx5jKPSgmidDAtoBvDxbUCqpzXTBMhXM4x1wni/4W2mk2Ebszf88sCKnM5ZfwyYqueANf2KehLvhiRT6+Jy5GIqqEmp60fmdLpny0a1tt/yuR8FMZD/GVq2dmDyyUD/f7rHFP5JV0P9R3W4DEbB9MUu8iS1BUrKXtBM8VcGYKQk3C118XhIKcBPSSnpH8uMvccLWklkbBs6MIvqaWPyfsCQqqZp1tA5jCGmT3iwioagSsOqGBVxqB9Mfx+uwKciDzFYPTGu2Z3ohMmhNL+tHgKH8VMFkUiaqbOJ1wtak/EjXhdIK/5G4+jwhPAf7gpsVs9ycH3Ne8gdE5l6zH7c5dNpNU51V9pIaHArIkferHHkzPxgfjN+KpgoiSwtGHhV1HGsqHZFr4HgPLUw2yaaAt3uVQrrVfqWt5lCASY4X0MjqSZDMLEgFE0IHnxcFHnjMI9zXbVsPhjHdfUGcvJfOM+lBLJkkWwIbEgEk5GpzmP+nTFhGNKeboX2D7S0IG1AzopO1+et2Hbeg6zuS6LrBMClPyGeLnwl0q9RMsrNwu0pymNK/hoaaPabBYdL3UtB8=
+    MYSQL_ROOT_PASSWORD: AgBeKzYFFU6IzbqvAS1/hFwkolSLMx1MlIy+UtVb/c26lIsBX5ThP20JBw3CQ2Oc4wvGTuvqiwbE54Yjertl9HiE5R4AO1FuWGYMlcBXbzwScXMYzmJd6kMnspyOY//YEt5wc0b3TmaTSJ58RmDceyxQhISNmg4bwUPzuwbFrvnLQ/9FST46a4bVrL5LXElcu9JByWe7Ts2yD8w+o5SuNGGI5vd6wPNHwcf6pwcQ36mynCUa8ysRq5utyGuhWNe0ICeiHABVlBjwKP/OaXrEm1kWgOi8ikGgIRCT4iMXn9a+/dLp0lvcXIqMt3+oUDEQPLroMKjLpaRIPHS/eeRw2gH10MzrLXbGNb2iXcAGNdaF3t+eSOjudsBXNK07m/cNuGI7UsUnGHbPjxGq+U3YJqlF7avnuw1BfmBAxUI7k6QOtBqTTMQJFOG4QG7KdBeKnXF55sUuUrGhw1k/r4xfdQVrHST3+92T4s/u78Z5rZO2D1Xw+Rx5fOn/6cYE5grN+h5FXuE8Ud4CAZyBzGVIKjMeYOm1uz7UvXNlcy2D3a5JPY06MvG9RTdZooQQNvJzKqjrhQRu0cmVrG0lqN1oHPJvL55f7el9LfN7glOfglAgs+rCZ9rP0lZZxKjdeSgc30c6kozwRE2PYfqOPYq10xleBo8V4lZHI3rdJST8KH0+un6+0xxqvRfxTt2c3SBpbQDZp+/WMRqvmA==
+  template:
+    metadata:
+      name: mysql-secret
+      namespace: default
+    type: Opaque
+
+---
+# 2. Persistent Volume Claim (Richiesta di disco per MySQL)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# 3. Database MySQL (StatefulSet invece di Deployment!)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mariadb:10.11
+        envFrom:
+        - secretRef:
+            name: mysql-secret
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+
+---
+# 4. Service per MySQL (ClusterIP, visibile solo dentro al cluster)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+# 5. Cache Redis
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,7 +101,7 @@ spec:
         - containerPort: 6379
 
 ---
-# 2. Service per Redis
+# 6. Service per Redis
 apiVersion: v1
 kind: Service
 metadata:
@@ -37,7 +115,7 @@ spec:
       targetPort: 6379
 
 ---
-# 3. App Flask
+# 7. App Flask (Deployment)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -61,11 +139,22 @@ spec:
         env:
         - name: REDIS_HOST
           value: "redis-service"
+        - name: MYSQL_HOST
+          value: "mysql-service"
+        - name: MYSQL_USER
+          value: "root"
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DB
+          value: "guestbook"
         ports:
         - containerPort: 5000
 
 ---
-# 4. Service per Flask (Ora ClusterIP, non più NodePort)
+# 8. Service per Flask (ClusterIP, accessibile tramite Ingress)
 apiVersion: v1
 kind: Service
 metadata:
@@ -80,7 +169,7 @@ spec:
       targetPort: 5000
 
 ---
-# 5. Ingress (Il nuovo Portiere!)
+# 9. Ingress (Il Portiere)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
