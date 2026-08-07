@@ -5,11 +5,11 @@ import pymysql
 
 app = Flask(__name__)
 
-# Configurazione Redis
+# Redis Configuration
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 
-# Configurazione MySQL
+# MySQL Configuration
 MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
 MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
 MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'password')
@@ -37,7 +37,7 @@ def get_mysql_connection():
         return None
 
 def init_db():
-    """Crea la tabella nel database se non esiste già."""
+    """Creates the database table if it doesn't already exist."""
     conn = get_mysql_connection()
     if conn:
         with conn.cursor() as cursor:
@@ -51,72 +51,72 @@ def init_db():
         conn.commit()
         conn.close()
 
-# Inizializza il DB all'avvio dell'app
+# Initialize DB on app startup
 init_db()
 
 @app.route('/', methods=['GET', 'POST'])
 def hello():
-    # Info Kubernetes
+    # Kubernetes Info
     pod_name = os.environ.get('HOSTNAME', 'Local-Workstation')
     node_name = os.environ.get('NODE_NAME', 'N/A')
     client_ip = request.remote_addr
 
-    # Logica Visite (Redis)
+    # Visit Counter Logic (Redis)
     r = get_redis_connection()
     if r:
         visit_count = r.incr('visit_count')
-        redis_status = f"✅ Connesso a Redis su {REDIS_HOST}"
+        redis_status = f"✅ Connected to Redis on {REDIS_HOST}"
     else:
-        visit_count = "N/D"
-        redis_status = f"❌ Impossibile connettersi a Redis su {REDIS_HOST}"
+        visit_count = "N/A"
+        redis_status = f"❌ Cannot connect to Redis on {REDIS_HOST}"
 
-    # Logica Messaggi (MySQL)
-    mysql_status = f"❌ Impossibile connettersi a MySQL su {MYSQL_HOST}"
+    # Messages Logic (MySQL)
+    mysql_status = f"❌ Cannot connect to MySQL on {MYSQL_HOST}"
     messages = []
     
     conn = get_mysql_connection()
     if conn:
-        mysql_status = f"✅ Connesso a MySQL su {MYSQL_HOST}"
+        mysql_status = f"✅ Connected to MySQL on {MYSQL_HOST}"
         with conn.cursor() as cursor:
-            # Se è una POST, salva il messaggio
+            # If POST, save the message
             if request.method == 'POST':
                 msg = request.form.get('message')
                 if msg:
                     cursor.execute("INSERT INTO messages (message) VALUES (%s)", (msg,))
                     conn.commit()
             
-            # Leggi gli ultimi 10 messaggi
+            # Read the last 10 messages
             cursor.execute("SELECT message, created_at FROM messages ORDER BY created_at DESC LIMIT 10")
             messages = cursor.fetchall()
         conn.close()
 
-    # Costruzione HTML
+    # HTML Construction
     html = f"""
     <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; border-radius: 10px;">
         <h1>🚀 Multi-Tier Flask Guestbook</h1>
-        <p><strong>Stato Cache (Redis):</strong> {redis_status}</p>
-        <p><strong>Stato DB (MySQL):</strong> {mysql_status}</p>
+        <p><strong>Cache Status (Redis):</strong> {redis_status}</p>
+        <p><strong>DB Status (MySQL):</strong> {mysql_status}</p>
         <ul style="font-size: 18px;">
             <li>Pod Name: <b>{pod_name}</b></li>
             <li>Node Name: <b>{node_name}</b></li>
             <li>Client IP: <b>{client_ip}</b></li>
-            <li style="color: #d9534f;">Visite Totali: <b>{visit_count}</b></li>
+            <li style="color: #d9534f;">Total Visits: <b>{visit_count}</b></li>
         </ul>
         
-        <h2>Lascia un messaggio:</h2>
+        <h2>Leave a message:</h2>
         <form method="POST">
-            <input type="text" name="message" placeholder="Scrivi qualcosa..." required style="padding: 8px; width: 300px;">
-            <button type="submit" style="padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px;">Invia</button>
+            <input type="text" name="message" placeholder="Write something..." required style="padding: 8px; width: 300px;">
+            <button type="submit" style="padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px;">Submit</button>
         </form>
         
-        <h3>Ultimi messaggi (salvati in MySQL):</h3>
+        <h3>Latest messages (saved in MySQL):</h3>
         <ul>
     """
     for m in messages:
         html += f"<li><b>{m['created_at']}</b>: {m['message']}</li>"
     
     if not messages:
-        html += "<li>Nessun messaggio ancora. Scrivi il primo!</li>"
+        html += "<li>No messages yet. Write the first one!</li>"
         
     html += """
         </ul>
