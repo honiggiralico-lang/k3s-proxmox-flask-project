@@ -87,6 +87,17 @@ def hello():
     # NODE_NAME is passed via Downward API in the YAML
     node_name = os.environ.get('NODE_NAME', 'N/A')
     node_os = get_node_os(node_name)
+
+    # Logica per il logo ufficiale dell'OS (usando Devicon CDN)
+    os_logo_url = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg" # Default Tux
+    if "Fedora" in node_os:
+        os_logo_url = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fedora/fedora-original.svg"
+    elif "Debian" in node_os:
+        os_logo_url = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/debian/debian-original.svg"
+    elif "Alpine" in node_os:
+        os_logo_url = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/alpine/alpine-original.svg"
+    elif "Ubuntu" in node_os:
+        os_logo_url = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/ubuntu/ubuntu-plain.svg"
     client_ip = request.remote_addr
 
     # Visit Counter Logic (Redis)
@@ -125,7 +136,7 @@ def hello():
         <ul style="font-size: 18px;">
             <li>Pod Name: <b>{pod_name}</b></li>
             <li>Node Name: <b>{node_name}</b></li>
-            <li>Node OS: <b>{node_os}</b></li>
+            <li>Node OS: <b><img src="{os_logo_url}" alt="OS Logo" style="height: 20px; vertical-align: middle; margin-right: 5px;"> {node_os}</b></li>
             <li>Client IP: <b>{client_ip}</b></li>
             <li style="color: #d9534f;">Total Visits: <b>{visit_count}</b></li>
         </ul>
