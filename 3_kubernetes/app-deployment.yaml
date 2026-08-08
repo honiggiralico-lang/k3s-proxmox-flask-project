@@ -1,4 +1,33 @@
 ---
+# 0. RBAC per permettere all'app di leggere le info dei Nodi
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flask-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: flask-node-reader-binding
+subjects:
+- kind: ServiceAccount
+  name: flask-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: node-reader
+  apiGroup: rbac.authorization.k8s.io
+
+---
 # 1. Secret per le credenziali di MariaDB
 apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
@@ -131,6 +160,7 @@ spec:
       labels:
         app: flask
     spec:
+      serviceAccountName: flask-sa
       containers:
       - name: flask
         image: <CONTROL_NODE_IP>:5000/flask-k8s-app:latest

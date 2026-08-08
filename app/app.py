@@ -2,6 +2,9 @@ from flask import Flask, request
 import os
 import redis
 import pymysql
+import json
+import urllib.request
+import ssl
 
 app = Flask(__name__)
 
@@ -51,6 +54,29 @@ def init_db():
         conn.commit()
         conn.close()
 
+def get_node_os(node_name):
+    """Query K8s API to get the OS of the node where the pod is running."""
+    if node_name == "N/A" or node_name == "Local-Workstation":
+        return "Local OS"
+    try:
+        # K8s internal API URL
+        api_url = f"https://kubernetes.default.svc/api/v1/nodes/{node_name}"
+        token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        
+        with open(token_path, 'r') as f:
+            token = f.read()
+            
+        req = urllib.request.Request(api_url, headers={"Authorization": f"Bearer {token}"})
+        context = ssl.create_default_context()
+        context.load_verify_location(ca_path)
+        
+        with urllib.request.urlopen(req, context=context) as response:
+            node_data = json.loads(response.read().decode('utf-8'))
+            return node_data['status']['nodeInfo']['osImage']
+    except Exception as e:
+        return f"Error fetching OS: {str(e)}"
+
 # Initialize DB on app startup
 init_db()
 
@@ -58,7 +84,9 @@ init_db()
 def hello():
     # Kubernetes Info
     pod_name = os.environ.get('HOSTNAME', 'Local-Workstation')
+    # NODE_NAME is passed via Downward API in the YAML
     node_name = os.environ.get('NODE_NAME', 'N/A')
+    node_os = get_node_os(node_name)
     client_ip = request.remote_addr
 
     # Visit Counter Logic (Redis)
@@ -78,14 +106,12 @@ def hello():
     if conn:
         mysql_status = f"✅ Connected to MySQL on {MYSQL_HOST}"
         with conn.cursor() as cursor:
-            # If POST, save the message
             if request.method == 'POST':
                 msg = request.form.get('message')
                 if msg:
                     cursor.execute("INSERT INTO messages (message) VALUES (%s)", (msg,))
                     conn.commit()
             
-            # Read the last 10 messages
             cursor.execute("SELECT message, created_at FROM messages ORDER BY created_at DESC LIMIT 10")
             messages = cursor.fetchall()
         conn.close()
@@ -99,6 +125,7 @@ def hello():
         <ul style="font-size: 18px;">
             <li>Pod Name: <b>{pod_name}</b></li>
             <li>Node Name: <b>{node_name}</b></li>
+            <li>Node OS: <b>{node_os}</b></li>
             <li>Client IP: <b>{client_ip}</b></li>
             <li style="color: #d9534f;">Total Visits: <b>{visit_count}</b></li>
         </ul>
