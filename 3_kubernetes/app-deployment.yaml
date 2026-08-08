@@ -179,6 +179,10 @@ spec:
               key: MYSQL_ROOT_PASSWORD
         - name: MYSQL_DB
           value: "guestbook"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         ports:
         - containerPort: 5000
 
