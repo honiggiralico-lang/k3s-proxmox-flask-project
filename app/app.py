@@ -69,7 +69,7 @@ def get_node_os(node_name):
             
         req = urllib.request.Request(api_url, headers={"Authorization": f"Bearer {token}"})
         context = ssl.create_default_context()
-        context.load_verify_location(ca_path)
+        context.load_verify_locations(ca_path)
         
         with urllib.request.urlopen(req, context=context) as response:
             node_data = json.loads(response.read().decode('utf-8'))
