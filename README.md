@@ -4,11 +4,11 @@ This project implements a fully automated, GitOps-driven infrastructure pipeline
 
 ## Architecture
 
-The entire infrastructure is managed from a Fedora Linux control node, which provisions a K3s cluster on a remote Proxmox VE hypervisor, serves container images via a local registry, and orchestrates deployments via GitOps.
+The entire infrastructure is managed from a Fedora Linux control node, which provisions a K3s cluster on a remote Proxmox VE hypervisor, serves container images via a persistent local registry, and orchestrates deployments via GitOps.
 
 ![Architecture Diagram](docs/architecture-v3.png)
 
-- **Control Node (Workstation):** Fedora Linux. Acts as the DevOps control plane. Runs Terraform, Ansible, `kubectl`, and manages persistent background services (a GitHub Actions runner and a local Podman registry) via `systemd` and Podman Quadlet.
+- **Control Node (Workstation):** Fedora Linux. Acts as the DevOps control plane. It requires a **Static LAN IP** to ensure cluster components can reliably reach the registry and runner. It runs Terraform, Ansible, `kubectl`, and manages persistent background services via `systemd` and Podman Quadlet.
 - **Hypervisor:** Proxmox VE (Bare-metal server on the same LAN, 12GB RAM).
 - **Kubernetes Cluster (K3s):**
   - 1x Master Node (Fedora Cloud Image) - Runs Traefik Ingress Controller.
@@ -20,7 +20,7 @@ The entire infrastructure is managed from a Fedora Linux control node, which pro
 - **Container Orchestration:** K3s (Lightweight Kubernetes, CNCF Certified).
 - **Containerization:** Podman.
 - **CI/CD & GitOps:** GitHub Actions (Self-Hosted Runner).
-- **Storage & Security:** PersistentVolumeClaims (PVC), StatefulSets, Kubernetes RBAC, Bitnami Sealed Secrets.
+- **Storage & Security:** PersistentVolumeClaims (PVC), StatefulSets, Kubernetes RBAC, Bitnami Sealed Secrets, Podman Named Volumes.
 - **Observability:** Prometheus, Grafana, Node Exporter (via Helm).
 - **Application:** Python (Flask) + Redis + MariaDB.
 
@@ -61,11 +61,57 @@ The entire infrastructure is managed from a Fedora Linux control node, which pro
    ansible-playbook -i inventory.ini registry-setup.yml
    ```
 
-### Step 3: Control Node Services Setup (Systemd & Quadlet)
-To ensure the CI/CD pipeline and image registry are always available, configure them as persistent `systemd` services on the Fedora control node:
-1. **Local Registry:** Create a Podman Quadlet file (`~/.config/containers/systemd/local-registry.container`) for the `docker.io/library/registry:2` image, mapping port 5000. Enable it via `systemctl --user enable local-registry`.
-2. **GitHub Runner:** Install the GitHub Actions self-hosted runner and configure it as a `systemd` service using the provided `svc.sh` script or a custom unit file.
-3. Add your control node's LAN IP as a `REGISTRY_IP` secret in the GitHub repository settings.
+### Step 3: Control Node Preparation (Static IP & Systemd Services)
+To ensure the CI/CD pipeline and image registry are always available and persistent, the Fedora control node must be configured properly.
+
+1. **Set Static LAN IP:** The local registry and K3s nodes rely on a fixed IP. Use `nmcli` to configure your network connection (replace `<CONNECTION_NAME>`, `<STATIC_IP>`, and `<GATEWAY_IP>` with your actual network values):
+   ```bash
+   # Find your connection name
+   nmcli connection show
+   
+   # Configure static IP, gateway, and DNS
+   sudo nmcli connection modify '<CONNECTION_NAME>' ipv4.addresses <STATIC_IP>/24
+   sudo nmcli connection modify '<CONNECTION_NAME>' ipv4.gateway <GATEWAY_IP>
+   sudo nmcli connection modify '<CONNECTION_NAME>' ipv4.dns "<GATEWAY_IP>"
+   sudo nmcli connection modify '<CONNECTION_NAME>' ipv4.method manual
+   sudo nmcli connection up '<CONNECTION_NAME>'
+   ```
+
+2. **Local Registry (Persistent Podman Quadlet):** Create the local directory for the registry volume, then create a Podman Quadlet file (`~/.config/containers/systemd/local-registry.container`) to run the registry as a `systemd` service. The `:Z` volume flag ensures SELinux compliance on Fedora.
+   ```bash
+   # Create persistent volume directory
+   mkdir -p ~/registry-data
+   
+   # Create Quadlet configuration file
+   cat <<EOF > ~/.config/containers/systemd/local-registry.container
+   [Unit]
+   Description=Podman Container - Local Registry
+   Wants=network-online.target
+   After=network-online.target
+
+   [Container]
+   Image=docker.io/library/registry:2
+   ContainerName=local-registry
+   PublishPort=5000:5000
+   Volume=/home/$USER/registry-data:/var/lib/registry:Z
+   AutoUpdate=registry
+
+   [Service]
+   Restart=always
+   TimeoutStartSec=60
+
+   [Install]
+   WantedBy=default.target
+   EOF
+   ```
+   Enable and start the registry service:
+   ```bash
+   systemctl --user daemon-reload
+   systemctl --user enable --now local-registry
+   ```
+
+3. **GitHub Runner:** Install the GitHub Actions self-hosted runner and configure it as a `systemd` service using the provided `svc.sh` script or a custom unit file.
+4. **GitHub Secrets:** Add your control node's Static LAN IP as a `REGISTRY_IP` secret in the GitHub repository settings.
 
 ### Step 4: Application Deployment (GitOps)
 1. Retrieve the K3s kubeconfig from the master node to your control node:
@@ -89,7 +135,7 @@ To ensure the CI/CD pipeline and image registry are always available, configure 
 ## Key Features & Engineering Challenges Solved
 
 - **Strict Capacity Planning:** Successfully orchestrated 3 VMs, K8s workloads, and a monitoring stack on a bare-metal host limited to 12GB of RAM, using K3s instead of full K8s.
-- **Persistent System Services:** Configured the local Podman registry using Podman Quadlet and the GitHub Runner as native `systemd` services, ensuring infrastructure tools survive reboots automatically.
+- **Persistent System Services:** Configured the local Podman registry using Podman Quadlet with a named volume (`:Z` for SELinux), ensuring container images survive reboots. The GitHub Runner is also configured as a native `systemd` service.
 - **Stateful Workloads & Persistence:** Deployed MariaDB using a `StatefulSet` with a `PersistentVolumeClaim` (PVC) to ensure database data survives pod termination.
 - **GitOps & CI/CD Automation:** Implemented a continuous deployment pipeline using a GitHub Actions self-hosted runner. A simple `git push` triggers image build, registry push, and `kubectl rollout restart` automatically.
 - **Security & Secrets Management:** Used Bitnami Sealed Secrets to encrypt MariaDB credentials client-side, allowing sensitive data to be safely stored in the Git repository.
@@ -107,4 +153,3 @@ Under normal lab conditions, the cluster operates at ~6% CPU and ~38% Memory uti
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
