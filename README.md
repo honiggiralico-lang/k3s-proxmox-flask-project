@@ -20,7 +20,7 @@ The entire infrastructure is managed from a Fedora Linux control node, which pro
 - **Container Orchestration:** K3s (Lightweight Kubernetes, CNCF Certified).
 - **Containerization:** Podman.
 - **CI/CD & GitOps:** GitHub Actions (Self-Hosted Runner).
-- **Storage & Security:** PersistentVolumeClaims (PVC), StatefulSets, Kubernetes RBAC, Bitnami Sealed Secrets, Podman Named Volumes.
+- **Storage & Security:** PersistentVolumeClaims (PVC), StatefulSets, Kubernetes RBAC, Bitnami Sealed Secrets, Podman Named Volumes, K8s Encryption at Rest.
 - **Observability:** Prometheus, Grafana, Node Exporter (via Helm).
 - **Application:** Python (Flask) + Redis + MariaDB.
 
@@ -138,8 +138,11 @@ To ensure the CI/CD pipeline and image registry are always available and persist
 - **Persistent System Services:** Configured the local Podman registry using Podman Quadlet with a named volume (`:Z` for SELinux), ensuring container images survive reboots. The GitHub Runner is also configured as a native `systemd` service.
 - **Stateful Workloads & Persistence:** Deployed MariaDB using a `StatefulSet` with a `PersistentVolumeClaim` (PVC) to ensure database data survives pod termination.
 - **GitOps & CI/CD Automation:** Implemented a continuous deployment pipeline using a GitHub Actions self-hosted runner. A simple `git push` triggers image build, registry push, and `kubectl rollout restart` automatically.
-- **Security & Secrets Management:** Used Bitnami Sealed Secrets to encrypt MariaDB credentials client-side, allowing sensitive data to be safely stored in the Git repository.
-- **Least Privilege RBAC:** Created custom Kubernetes `ServiceAccount`, `ClusterRole`, and `ClusterRoleBinding` to allow the Flask app to query the K8s API (Downward API) for node OS information securely.
+- **Defense in Depth (Security):**
+  - **Encryption at Rest:** Configured the K8s API Server to encrypt the K3s SQLite database using AES-CBC, protecting secrets if the node's disk is compromised.
+  - **Detailed Procedure:** See [docs/encryption-at-rest.md](docs/encryption-at-rest.md) for the exact K3s API Server configuration steps.
+  - **Sealed Secrets:** Encrypted MariaDB credentials client-side using Bitnami Sealed Secrets, allowing sensitive data to be safely stored in the Git repository.
+  - **Least Privilege RBAC:** Created custom Kubernetes `ServiceAccount`, `ClusterRole`, and `ClusterRoleBinding` to allow the Flask app to query the K8s API (Downward API) for node OS information securely.
 - **Ingress Controller & Local DNS:** Utilized the built-in Traefik Ingress Controller to route Layer 7 HTTP traffic for both the app (`flask.local`) and Grafana (`grafana.local`) on standard port 80.
 - **Observability:** Deployed Prometheus and Grafana via Helm to scrape and visualize cluster metrics (CPU, RAM, Pod health) using Node Exporter.
 
@@ -153,3 +156,4 @@ Under normal lab conditions, the cluster operates at ~6% CPU and ~38% Memory uti
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
