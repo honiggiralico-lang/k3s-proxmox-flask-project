@@ -6,7 +6,17 @@ This project implements a fully automated, GitOps-driven infrastructure pipeline
 
 The entire infrastructure is managed from a Fedora Linux control node, which provisions a K3s cluster on a remote Proxmox VE hypervisor, serves container images via a persistent local registry, and orchestrates deployments via GitOps.
 
-![Architecture Diagram](docs/architecture-v3.png)
+### 1. Global Infrastructure & CI/CD Flow
+![Global Architecture](docs/architecture-v3.png)
+
+### 2. Security Mechanisms (Sealed Secrets & Encryption at Rest)
+![Security Architecture](docs/architecture_security_mechanism.png)
+
+### 3. Least Privilege RBAC (Downward API Access)
+![RBAC Architecture](docs/architecture_RBAC.png)
+
+### 4. Observability (Prometheus & Grafana)
+![Monitoring Architecture](docs/architecture_monitoring.png)
 
 - **Control Node (Workstation):** Fedora Linux. Acts as the DevOps control plane. It requires a **Static LAN IP** to ensure cluster components can reliably reach the registry and runner. It runs Terraform, Ansible, `kubectl`, and manages persistent background services via `systemd` and Podman Quadlet.
 - **Hypervisor:** Proxmox VE (Bare-metal server on the same LAN, 12GB RAM).
@@ -32,7 +42,7 @@ The entire infrastructure is managed from a Fedora Linux control node, which pro
 ├── 2_ansible/         # K3s installation, registry config, and RBAC
 ├── 3_kubernetes/      # Kubernetes manifests (Deployments, StatefulSets, PVC, Ingress)
 ├── app/               # 3-tier Flask application source code & Dockerfile
-├── docs/              # Architecture diagram
+├── docs/              # Architecture diagrams and security docs
 └── README.md
 ```
 
@@ -139,8 +149,7 @@ To ensure the CI/CD pipeline and image registry are always available and persist
 - **Stateful Workloads & Persistence:** Deployed MariaDB using a `StatefulSet` with a `PersistentVolumeClaim` (PVC) to ensure database data survives pod termination.
 - **GitOps & CI/CD Automation:** Implemented a continuous deployment pipeline using a GitHub Actions self-hosted runner. A simple `git push` triggers image build, registry push, and `kubectl rollout restart` automatically.
 - **Defense in Depth (Security):**
-  - **Encryption at Rest:** Configured the K8s API Server to encrypt the K3s SQLite database using AES-CBC, protecting secrets if the node's disk is compromised.
-  - **Detailed Procedure:** See [docs/encryption-at-rest.md](docs/encryption-at-rest.md) for the exact K3s API Server configuration steps.
+  - **Encryption at Rest:** Configured the K8s API Server to encrypt the K3s SQLite database using AES-CBC, protecting secrets if the node's disk is compromised. ([See detailed procedure](docs/encryption-at-rest.md))
   - **Sealed Secrets:** Encrypted MariaDB credentials client-side using Bitnami Sealed Secrets, allowing sensitive data to be safely stored in the Git repository.
   - **Least Privilege RBAC:** Created custom Kubernetes `ServiceAccount`, `ClusterRole`, and `ClusterRoleBinding` to allow the Flask app to query the K8s API (Downward API) for node OS information securely.
 - **Ingress Controller & Local DNS:** Utilized the built-in Traefik Ingress Controller to route Layer 7 HTTP traffic for both the app (`flask.local`) and Grafana (`grafana.local`) on standard port 80.
