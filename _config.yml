@@ -1,0 +1,4 @@
+title: K3s Proxmox Flask Project
+description: Automated Kubernetes Cluster on Proxmox with Terraform & Ansible.
+theme: jekyll-theme-cayman
+
